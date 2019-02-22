@@ -1,0 +1,477 @@
+---
+title: "Sentiment Analysis in R"
+author: "Marius Saeltzer"
+date: "21 Februar 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Kurze Diskussion: Was erwartet ihr von diesem Kurs? Warum seid ihr hier?
+
+TOP: 
+  1. Wie kommen wir an Social Media Daten?
+      a) Einführung in R
+      b) Die TwitterAPI
+      c) Exkurs: Daten sammeln, Daten schützen
+  2. Wie analysiert man Social Media Daten?
+      a) Text als Daten
+      b) Textbereinigung
+      c) Sentiment Analysis
+  3. Was macht man mit Social Media Daten? 
+      a) Anwendungsfall: Social Media und Politik
+      b) Ton, Follower und Anreize
+      c) Die Landtagswahlen in Hessen und Bayern
+
+# Teil 1: Willkommen in Big Data
+
+Soziale Medien sind Teil unseres Alltags geworden, wir kommunizieren in Form von privaten Kurznachrichten, aber auch in öffentlich zugänglichen Status updates, Kommentaren, likes und retweets. Für Sozialwissenschaftler, aber auch Unternehmen ist das ein gewaltiger Datenschatz, der es uns erlaubt, auf direkte Befragung zu verzichten und Schlüsse aus euren digitalen Spuren zu ziehen. Dies wird besonders am Beispiel Emotionen deutlich. Für Unternehmen ist es wichtig zu wissen, ob ein Produkt gut ankommt. Für Politikwissenschaftler ist es wichtig, ob den Kommentatoren eine Rede eines Politikers gefallen hat. Doch wie lassen sich die Gefühle von tausenden Followern messen?
+
+Ein großer Teil der 'Big Data' Debatte bezieht sich auf die gewaltigen Datenmengen, die soziale Netzwerke produzieren. Das Problem ist nicht mehr der Mangel, sondern der Überfluss ungeordneter Informationen. Aber wie kann man sich diese Auswertung solcher Datenmengen vorstellen? Was soll man mit 200.000 Tweets anfangen? 
+Natürlich nicht, indem ihr sie selbst lest. Stattdessen überlassen wir es dem Computer. Dieser Workshop gibt eine Einführung in automatisierte Analyse von Sprache, sowohl theoretisch als auch praktisch. Mit der Open Source Programmiersprache R erarbeiten wir ein kleines Programm, mit dem ihr Tweets extrahieren und analysieren können. Ein besonderer Fokus liegt auf der sogenannten Sentiment Analysis, mit der wir die Wortwahl von Menschen in Texten quantifizieren können. 
+
+
+      
+## Willkommen in R
+
+R ist eine open source Programmiersprache, die in sogenannten Skripten strukturiert ist. Sie ist verwandt mit Java, Python und gehört mittlerweile zu den am häufisten verwendeten Sprachen. R ist spezialisiert auf die Analyse von Daten, eine Eigenschaft, die R von C++ und vergleichbaren 'kompletten' Sprachen unterscheidet. 
+
+Das Programm, das wir heute verwenden besteht aus Code Zeilen, die unterliegende Funktionen ansprechen, die ich in Unterordnern angelegt habe. Aus diesem Grund ist es wichtig, ein sogenanntes root directory, ein Wurzelverzeichnis anzulegen, und zwar an dem Ort, wo der beigefügte Ordner angelegt.
+
+Der Zuweisungspfeil <- erzeugt sogenannte objekte. R ist eine objektorientierte Sprache. Alle neuen Objekte werden in er sogenannten Environment angelegt, die sich in RStudio rechts oben befindet.
+
+Alles, was in Anführungszeichen steht, nennt sich Zeichenkette oder 'string'. In R Editoren wie RStudio wird dieser leicht grünlich angezeigt. Strings eine Form von Daten, die anderen sind Wertedie ohne Anführungszeichen und blau erscheinen. Werte werden vom System direkt interpretiert, es kann sich um Zahlen handeln oder logische Operatoren.   
+
+In diesem, ersten codeblock lege ich eine reihe von Objekten an. Zuerst das Kernverzeichnies. Dieses können sie ändern. Der paste0 Befehl fügt an ihr Verzeichnis Unterpfade an. Im Prinzipt legen wir eine Karte des Verzeichnisses an.
+
+```{r}
+root<-'C:\\Users\\admin\\scrape'
+fun<-paste0(root,'\\scripts\\functions')
+script<-paste0(root,'\\scripts')
+docu<-paste0(root,'\\documentation')
+docufiles<-paste0(root,'\\documentation\\files')
+examples<-paste0(root,'\\examples')
+dat<-paste0(root,'\\data')
+
+
+```
+
+## Installation von Paketen
+
+Wir haben nun eine Reihe von Objekten angelegt. Objekte, einmal mit dem Pfeil definiert, können einfach angesprochen werden. Wenn wir also root ausführen, erscheint der Inhalt.
+
+```{r}
+root
+
+```
+Wir nutzen ein Adressobjekt, um das Arbeitsverzeichnis zu ändern. Dort befindet sich unser erstes Skript: unpack.R.
+
+Der Befehl zum ändern des Arbeitsverzeichnis ist setwd(). Mit dem source Befehl führen wir das dort liegende erste Skript aus, welches sogenannte Pakete installiert.
+
+R ist eine open source Programmiersprache die kontinuierlich erweitert und verbessert wird. Wer R eine neue Funktion geben möchte, tut dies in Form installierbarer Erweiterungen, sogenannter Packages.
+
+```{r,message=FALSE, warning=FALSE}
+setwd(fun)
+#source('unpack.R')
+```
+Nach der Installation müssen wir die Pakete noch aktivieren. Das wichtigste ist rtweet, welches uns Zugriff auf die Twitter Daten erlaubt.
+
+```{r, message=FALSE, warning=FALSE}
+library(rtweet)
+library(stringr)
+library(ggplot2)
+library(dplyr)
+library(qdapRegex)
+library(wordcloud)
+library(utils)
+
+
+
+```
+
+Wir beginnen mit der Datensammung. Zu diesem ZWeck brauche wir einen twitter API key. Diesen erhaltne wir, sobald wir einen Twitter Entwickler Zugang haben. Twitter genehmenigt
+für Mitglieder von Bildungseinrichtungen, aber auch kommerzielle Entickler Zugänge ohne größere
+Nachweispflicht. Für eigene Analysen empfehle ich, einen Account zu beantragen-
+
+Für diesen Workshop stelle ich meine Keys bereit. Sie befinden sich unter einem temprorären Dropboxlink
+
+```{r}
+toklink<-''
+
+```
+## Datensammlung
+
+call_api ist ein für diesen Kurs angepasste und vereinfachte Form der twitterAPI. Sie erlaubt das aufrufen beliebiger Accounts. Input ist ein sogenannter Vektor. Die Call API macht aus diesem vektor eine Anfrage und speichert alle Ergebnisse in einen data ordner den wir für unsere Datenverarbeitung nutzen. Sie können einige accounts eintragen, immer getrennt durch Kommata und in Anführungszeichen. Ersetzen sie 'spdbt', den Account der SPD Bundestagsfraktion durch einen Account ihrer Wahl.  
+
+```{r,warning=FALSE}
+
+setwd(script)
+source('0_Call.R')
+input<-c('spdbt')
+call_api(input,toklink=toklink)
+
+```
+### Daten einlesen 
+
+Jetzt sollten sich einige csv files in dem data ordner befinden. 
+Die nächste Funktion läd diese nun in die Environment
+
+```{r,warning=FALSE}
+setwd(script)
+source('1_select.R')
+## here we should specify
+working<-import_tw(dat) #inp=input if your want a specific account, not all 
+```
+### Daten inspizieren
+
+Herzlichen Glückwunsch, Sie haben ihre ersten Social Media Daten gesammelt. 
+Die Datei working beinhaltet jetzt unsere Tweets. Sie können oben rechts auf den kleinen blauen Pfeil vor working klicken und lesen, was Sie so gefunden haben. Die maximale Anzahl pro account ist auf die letzten 3200 tweets limitiert, eine Vorgabe von Twitter. Schauen wir mal, was wir alles gefunden haben.
+```{r}
+
+names(working)
+
+```
+### Datenreichtum auf Twitter
+
+Twitter bietet die Möglichkeit eine Vielfalt an Daten zu bekommen, die wir nutzen können um uns ein Bild 
+über die Nutzer zu machen und ihre Verhaltensweisen zu studieren.
+
+Zunächst schauen wir uns einmal die Vielfalt an Variablen an:
+
+Der names() Befehl sagt uns, was wir über jeden Tweet wissen. Hierbei handelt es sich um die Variablennamen unseres Datensatzes. Was denken Sie, was wir nun über die Tweets herausfinden können? Besprechen Sie sich kurz mit den anderen Seminarteilnehmern und überlegen, was wir alles üben den Account herausgefunden haben.
+
+Unser Datensatz enthält nur Informationen über die tweets eines einzigen Accounts.
+Daher gibt es viele Variablen, die komplett gleich bleiben. 
+Für eine bessere Übersicht, reduzieren wir Variablenanzahl um mehr über die einzelnen Tweets zu erfahren.
+
+```{r,warning=FALSE}
+
+setwd(fun)
+source('tweetvariation.R')
+working<-tweetvariation(working)
+
+```
+
+Zunächst können wir schauen zu welchen Uhrzeiten mit welchem Gerät die Person deren Acccount wir gesrcaped haben twittert:
+```{r}
+daytime<-ggplot(working, aes(x=as.POSIXct(hour, format="%H:%M:%S"),fill=source))
+daytime +scale_x_datetime(labels = function(x) format(x, format = "%H:%M"))+
+        labs(x="Tageszeit", y="tweets", fill="Gerät")+
+        geom_histogram(binwidth = 3600)
+```
+
+Diskussion: Was sind die Datenschutz Implikationen dieser Daten?
+
+### Datenschutz auf Twitter
+![](fermirotica.png)
+
+# Teil 2: Was tun mit Big Data?
+
+Wieviele tweets haben Sie gefunden? Hätten Sie Lust, diese alle zu lesen?
+
+```{r}
+
+print(working$text[sample(10)])
+
+
+```
+
+
+Bei 3200 Tweets ist das sicher noch machbar, aber wie sieht es mit den Tweets aller Abgeordneten des Deutschen Bundestages ( ca 300.000 Tweets)?
+
+Um diese Daten analysieren zu können, müssen wir über das manuelle Bearbeiten von Textdaten hinausgehen. Die Herausforderung ist weniger das Sammeln der Daten, als das sinnvolle Interpretieren.
+
+## Text als Daten
+
+Sprache ist eine sehr menschliche Konstruktion: sie ist mehrdeutig, konventionsgebunden, sozial konstruiert und komplex. Um mit Computern, die auf reiner Logik basieren, zu kommunizieren wurden Programmiersprachen entworfen, die eben nicht (oder nur begrenzt), menschlichen Angewohnheiten unterworfen sind. Dem gegenüber steht die 'Natürliche Sprache', dem Namensgeber des Natural Language Processing (NLP).
+
+Für Computer kann menschliche Grammatik unnötig komplex sein. Die Leistung, die ein menschliches Gehirn erbringt beim konstruieren und flektieren von Sätzen ist äußerst rechenintensiv. Aus diesem Grund verwenden einfache Suchalgorithmen den sogenannten 'Bag of Words' Ansatz: wir betrachten Texte als ungeordnete Ansammlungen mehr oder weniger bedeutungsvoller Worte. Satzbau und Flektionen werden ignoriert. Dem Gegenüber steht der Word-in-Context Ansatz, der deutlich höher entwickelt ist aber für die Aufgaben, die wir hier haben nicht wirklich besser funktioniert. 
+
+Um eine Brücke zu schlagen zwischen natürlicher Sprache und den Daten, die ein Computer interpretieren kann brauchen wir zwei Stufen von Sinnreduktion. Erst eine formale, dann eine inhaltliche. Der erste Schritt ist die Bereinigung von Texten, dem sog. Text-Preprocessing
+
+### Bereinigung
+
+
+Menschliche Sprache besteht aus viel Kram, den Computer nicht brauchen. Wenn wir Texte als 'Wortsäcke' betrachten, brauchen wir keine Zahlen, Interpunktion, Bindeworte und Flektionen. Letzteres ist für die deutsche Sprache etwas umstritten, daher habe ich die Option eingebaut, Flektionen zu erhalten.
+
+Soziale Medien insesondere bestehen aus vielen Dingen, die schwer zu interpretieren sind: URLs, hashtags, mentions, emoticons. Diese Dinge würden in einer Analyse beim Vergleich mit natürlicher Sprache eigenartige Effekte haben. Daher werden diese auch entfernt.
+
+```{r, message=FALSE,warning=FALSE}
+
+setwd(script)
+
+source('2_Preprocessing.R')
+
+working$clean<-cleaner(working)
+
+
+```
+
+Ein Beispiel: Was passiert mit einem beliebigen Tweet?
+
+```{r}
+i<-17
+print(cbind(working$text[i],working$clean[i]))
+
+```
+
+### Was Leute so schreiben
+
+Nun, nachdem wir die irrelevanten Worte und Zeichen entfernt haben, verschaffen wir uns einen Überblick wie der Wortsack aussieht.
+
+In den meisten text-as-data Ansätzen werden die Worthäufigkeiten 
+in einem Text genutzt um Aussagen über einen Text zu treffen.
+Um einen Überblick über die genutzten Wörter unseres Twitterers zu bekommen, können wir eine Wordcloud verwenden.
+
+```{r,warning=FALSE,message=FALSE}
+setwd(fun)
+source('wfm.R')
+
+d<-wfm(working)
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=100, random.order=F, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+
+Hier haben wir die 3200 Tweets bereits stark reduziert, so dass wir mit einem Blick einen Eindruck bekommen.
+
+```{r}
+timetrend<-ggplot(working, aes(x=day, col=type))
+timetrend+geom_freqpoly(binwidth=2604800, size=1)+
+  labs(x="Monat", y="tweets", col="Art")
+# binwidth: woche-> 604800, tag-> 86400, monat -> 2.6 mio
+```
+
+
+Für den ersten Blick ist das erhalten von Flektionen sinnvoll, für die Analyse hingegen kann es sinnvoll sein, Wortähnlichkeiten zu erhöhen und Variation zu reduzieren. 
+
+```{r,warning=FALSE,message=F}
+working$clean<-cleaner(working,stem=T)
+
+```
+
+Aus diesem Grund reduzieren wir alle Worte auf ihren Wortstamm.
+
+```{r}
+i<-17
+print(cbind(working$text[i],working$clean[i]))
+
+```
+Das sieht erstmal nach Kauderwelsch aus. Dennoch ist die Performanz dieser Ansätze deutlich höher.
+
+## Sentiment Analyse
+
+Doch was bedeuten diese Worte? Wir können uns mit der Wordcloud einen Eindruck verschaffen und beschreiben, worüber der Account twittert. Aber die Interpretation ist sehr subjektiv. Wie vergleichen wir die Bedeutung von Worten? Wie würden wir diesen Account mit einem anderen vergleichen? Wie können wir ihn analysieren?
+
+Es gibt eine Reihe von Dimensionen von Sprache. Wie kompliziert ist ein Text? Ist er politisch links? Ist er Spam? Skalierungsverfahren erlauben anhand von relativen Worthäufigkeiten zu differenzieren.
+
+In diesem Workshop geht es um Emotionalität, eine weitere Dimension, die man basierend auf Wortverwendung erfassen kann. Wie emotional sind die Worte, die ein Account verwendet? Sind sie positiv oder negativ?
+
+
+Sentiment oder Tonanalyse stammt ursprünlich aus der Marktforschung, dem Opinion Mining. Wie kann man automatisiert erkennen, ob tausende von Kunden ein Produkt mögen oder nicht. 
+Die sogenannte Sentiment Analyse gibt uns Aufschluss. Für diesen Zweck nutzen wir vordefinierte Dictionaries. Dictionaries sind Wörterbücher die zwischen dem Computer und der natürlichen Sprache vermitteln. Die übersetzen Worte in Zahlen, in einen Tonalitätsangae auf einer einigen Dimension. Diese Dimension bezieht sich auf Positivität und Negativität.
+Basierend darauf, ob die Worte vorkommen oder nicht wird den Texten eine Score zugewiesen.
+
+```{r,warning=FALSE}
+
+setwd(script)
+source('3_Dictionary.R')
+dict<-get_senti()
+print(dict[sample(nrow(dict),10),])
+
+```
+
+### Dictionary Analysis
+
+Wir verwenden hier zwei deutschsprachige Dictionaries
+
+Den klassichen SentiWS für die deutsche Allgemeinsprache
+
+*Remus, Robert; Quasthoff, Uwe; Heyer, Gerhart (2010): SentiWS - a Publicly Available German-language Resource for Sentiment Analysis. In: Proceedings of the 7th International Language Ressources and Evaluation, pp. 1168-1171.*
+ 
+Einen sehr neuen, auf Politik zugeschnittenen SentiCorpus 
+
+*Christian Rauh (2018) Validating a sentiment dictionary for German        political language-a workbench note, Journal of Information Technology & Politics, 15:4, 319-343, DOI: 10.1080/19331681.2018.1485608*
+ 
+
+```{r,message=FALSE,warning=FALSE}
+
+res_senti<-apply_senti(working,'sentiws',stemmed=T)
+
+rau_senti<-apply_senti(working,'rauh',stemmed=T)
+
+```
+
+```{r,message=FALSE,warning=FALSE}
+
+rauhscore<-rau_senti$score
+rauhpol<-rau_senti$pol
+res<-cbind(res_senti,rauhscore,rauhpol)
+```
+
+
+
+
+Wir fügen ein paar unserer gewonnenen Daten in einen einzigen Datensatz zusammen und beginnen mit der Analyse der Sentiments
+
+### Überblick über sentiment Analyse
+Um einen ersten Überblick für unsere Sentiments zu bekommen, können wir untersuchen wie unser Nutzer in der letzten Woche getweetet hat.
+
+```{r}
+lastweek<- ggplot(res[res$day>"2019-02-15",], aes(x=day, y=score, col=type))
+lastweek+geom_jitter()+
+  labs(x="Tag", y="Ton", col="Art")
+```  
+
+### Validierung
+
+Natürlich sind dictionary approaches mit Problemen behaftet, die gilt im Besondern für deutsche social media Daten. Informelle Sprache macht es dem Computer schwer, die Wörter aus den Dictionaries zuzuordnen. Daher unterschätzen Dictionaries die Negativität. Weiterhin gibt es Probleme mit Verneinung und Sarkassmus. Wir können diese Probleme durch Handcoding validieren.
+
+```{r,echo=FALSE}      
+setwd(root)
+cor(res[,c(39,41,43)])
+```
+
+```{r,results="hide"}      
+setwd(root)
+write.csv(working[1:30,4],'validate.csv')    
+      
+```
+Moderne Ansätze an Sentiment Analysis verwenden daher Supervised Machine Learning. Anstatt selbst zu definieren, welche Worte positiv oder negativ sind, codieren wir tweets in toto und lassen den Computer semantische Muster extrahieren. Dies ist eine Vorstufe der künstlichen Intelligenz und geht über die Reichweite dieses Seminars hinaus. 
+
+Diskussion: Ergibt es Sinn, Stimmungen durch solche Instrumente zu messen?
+
+----Pause-----
+
+# Teil 3: Ton und Politik in den Sozialen Medien 
+
+Wie hängen Emotionen in den Sozialen Medien mit Politik zusammen? Spätestens seit der Trump Präsidentschaft spielt Twitter eine große Rolle in der Art und Weise, wie wir Politik wahrnehmen. Diskussion um Filterblasen, die Verrohung des Tons, Trolle, Shitstorms und Bots sind an der Tagesordnung. Diesen Problemen auch empirisch auf den Grund zu gehen ist eine der Aufgaben der Politikwissenschaft.
+
+Wir stellen uns die Frage, ob die Sozialen Medien Politiker verändern, ob sich diese möglicherweise anpassen und ihren Ton verschärfen, wenn sie dafür belohnt werden mit likes und retweets. 
+
+*Twitter ist, wie kein anderes digitales Medium so aggressiv und in keinem anderen Medium gibt es so viel Hass, Böswilligkeit und Hetze. Offenbar triggert Twitter in mir etwas an: aggressiver, lauter, polemischer und zugespitzter zu sein - und das alles in einer Schnelligkeit, die es schwer macht, dem Nachdenken Raum zu lassen. Offenbar bin ich nicht immun dagegen.* 
+                                        **Robert Habeck**
+
+Wir fragen uns also: Setzt Twitter Anreize negativ zu tweeten? Und wenn ja, warum ist das so? Liegt es an der Filterblase?
+
+## Negativität und Retweets
+
+
+Jetzt können wir schauen, ob ein bestimmter Ton unterschiedliche Reaktionen bei den Followern auslöst:
+
+```{r}
+reaction<- ggplot(res[res$retweet_count>0,], aes(x=score, y=retweet_count, col=type))
+reaction+geom_point(alpha=0.4)+
+  labs(x="Ton", y="Retweets", col="Art")
+```
+Dieser Plot verrät uns noch nicht all zu viel über unseren Twitterer.
+Daher sollten wir weiterführende Statistiken benutzen.
+
+```{r,message=FALSE,warning=FALSE}
+library(MASS)
+m<-glm.nb(retweet_count~score+hashtag_count+URL_dummy, data=res[res$is_retweet==F,])
+
+setwd(fun)
+source('predictdata.R')
+pred_score<-predict.by.score(model=m, data=res[res$is_retweet==F,])
+
+t.effect<- ggplot(pred_score, aes(x=score, y=pred))
+t.effect+geom_line(size=1, col="red")+
+  labs(x="Ton", y="Retweets")
+
+```
+
+
+
+```{r}
+
+pred_prof<-predict.by.prof(model=m, data=res[res$is_retweet==F,])
+
+prof.effect<- ggplot(pred_prof, aes(x=hashtag_count, y=pred, col=URL_dummy))
+prof.effect+geom_line(size=1)+
+  labs(x="Hashtags", y="Retweets", col="URL")
+```
+
+## Forschungsergebnisse
+Nachdem wir jetzt untersucht haben, wie auf verschiedene Tweets eines einzelnen Nutzers reagiert wird, zeigen wir jetzt Ergebnisse unserer eigenen Forschung. 
+
+Zu diesem Zweck haben wir hier einen Datensatz aller Kandidaten der Landtagswahlen in Hessen und Baynern, die einen Twitter Account haben.
+
+```{r,message=FALSE,warning=FALSE}
+
+setwd(examples)
+tweet.data<- read.csv("tweet_data.csv")
+
+```
+
+Dieser Datensatz wurde mit den selben Instrumenten erzeugt und bearbeitet, die wir eben kennengelernt haben. Die Mehrebenenstruktur der Daten  und die Eigenschaften der abhängigen Variable machen eine kompliziertere Analyse notwendig. 
+
+```{r,message=FALSE,warning=FALSE}
+
+library(lme4)
+
+Plot.model<- glmer.nb(reach~neg+hashtag_count+URL_dummy+
+                     (1|screen)+(1|party),
+                   data=tweet.data, nAGQ=0)
+
+setwd(fun)
+source('predictdata.R')
+candidate.prediction<- predict.full(Plot.model, tweet.data, 
+                                    c("gerdmannesafd", "markus_soeder", "atesguerpinar"),
+                                    c("AfD", "Union", "DIE LINKE"))
+pred.curve<- ggplot(candidate.prediction, aes(x=neg, y=pred, col=screen))
+pred.curve+geom_line(size=1)+
+  labs(x="Negativity", y="Reach", col="Screen Name")
+
+```
+
+## Anreize und Echokammern
+
+Wir sind noch einen Schritt weiter gegangen und haben nicht nur geschaut,
+ob es allgemein für Politiker einen Negativity incentive gibt,
+wie stark dieser für verschiedene Politker is und ob er sich durch die Struktur der Follower erklären lässt. In anderen Worten: Sorgen Echokammern dafür, dass Politiker eher bereit sind zu polarisieren?
+
+```{r,message=FALSE,warning=FALSE}
+setwd(examples)
+individual.data<- read.csv("secondary_data.csv")
+individual.data<- individual.data[complete.cases(individual.data),]
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+aud.str<-ggplot(individual.data, aes(x=median_pos, y=var_pos, col=party, size=followers_count))
+aud.str+geom_point(alpha=0.5)+
+  labs(x="Median Follower", y="Variance", col="Partei", size="Anzahl Follower")+  scale_color_manual(values = my.colors) 
+```
+
+```{r,message=FALSE,warning=FALSE}
+
+neg.model<- lm(neg.x~var_pos+median_pos+log(followers_count)+party-1, data=individual.data)
+
+setwd(fun)
+source('predictdata.R')
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+
+effect.var<- predict.secondary(neg.model, individual.data, by.var = T)
+var.effect<- ggplot(effect.var, aes(x=var_pos, y=pred, col=party))
+var.effect+geom_line()+
+  labs(x="Varianz", y="Negativity Incentive", col="Partei")+  scale_color_manual(values = my.colors) 
+
+```
+
+```{r,message=FALSE,warning=FALSE}
+effect.med<- predict.secondary(neg.model, individual.data, by.var = F)
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+med.effect<- ggplot(effect.med, aes(x=median_pos, y=pred, col=party))
+med.effect+geom_line()+
+  labs(x="Median", y="Negativity Incentive", col="Partei")+  scale_color_manual(values = my.colors) 
+
+```
+
+Abschlussdiskussion: Asoziale Medien?
+
+
+
