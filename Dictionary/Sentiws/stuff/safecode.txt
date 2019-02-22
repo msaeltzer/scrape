@@ -1,0 +1,244 @@
+﻿setwd('C:\\Users\\msaeltze\\Documents\\Dissertation\\Structure\\Paper 2\\Text Cleaning Twitter')
+
+s<-read.table('rset.txt',sep=',',header=T)
+
+i<-read.table('individual.txt',sep='\t')
+
+
+names(s)[3]<-'screenname'
+t<-merge(s,i,by='screenname')
+
+
+
+
+s$date<-as.Date(s$date)
+
+
+setwd('C:\\Users\\msaeltze\\Documents\\Dissertation\\Structure\\Paper 2\\Text Cleaning Twitter')
+
+
+
+## ISSUES 
+
+## tokenization
+
+
+## compound words
+textstat_collocations()
+
+
+### dictionarys
+
+t<-s[s$account=='cad59',]
+
+t$per<-as.Date(t$date,'month')
+
+t<-s
+
+
+text<-as.character(t$text)
+
+groups_corp <- corpus(text, docvars = data.frame(screenname = t$screenname, date=t$date, party=t$party, district=t$home, mandate= t$Gewählt_Stimmenart))
+
+summary(groups_corp)
+
+### analyze of hashtags
+
+
+tweet_toks <- tokens(groups_corp)
+
+## hastags
+
+tweet_dfm <- dfm(tweet_toks, select = "#*")
+
+freq <- textstat_frequency(tweet_dfm, n = 10, groups = docvars(tweet_dfm, 'party'))
+
+head(freq, 70)
+
+
+
+
+tweet_dfm <- dfm(tweet_toks, select = "@*")
+
+freq <- textstat_frequency(tweet_dfm, n = 20, groups = docvars(tweet_dfm, 'party'))
+
+head(freq, 70)
+
+
+## among the top 20 most referred to accounts for each party, I extract those
+# which have party names in them
+refscreens<-c()
+counter<-0
+for (i in 1:length(p)){
+  for(j in 1:nrow(freq)){
+if(grepl(p[i], freq[j,1],ignore.case=T)==T){
+  counter<- counter +1
+  refscreens[counter]<-freq[j,1]}
+  }
+}
+r<-unlist(refscreens)
+
+
+pa<-c(p,r)
+
+
+tweet_dfm <- dfm(tweet_toks, select = "#*")
+
+freq <- textstat_frequency(tweet_dfm, n = 20, groups = docvars(tweet_dfm, 'party'))
+
+head(freq, 70)
+
+
+refscreens<-c()
+counter<-0
+for (i in 1:length(p)){
+  for(j in 1:nrow(freq)){
+    if(grepl(p[i], freq[j,1],ignore.case=T)==T){
+      counter<- counter +1
+      refscreens[counter]<-freq[j,1]}
+  }
+}
+rhas<-unlist(refscreens)
+
+pa<-c(pa,rhas)
+
+
+pa<-pa[!duplicated(pa)]
+pa<-sort(pa)
+
+
+
+padict<-dictionary(list(
+  CDU=c("#cdu","#cdubw","union","@junge_union","@cdu","@cducsubt"),
+  AFD=c("#afd","#afd-fraktion","#afdimbundestag","junge alternative","@afd_magdeburg","@afd_bund","@afd_magdeburg","@afd_support","@afdimbundestag"),
+  FDP=c("#fdp","@fdp","@fdp_lsa","@fdp_nrw","@fdpfraktionnrw","julis"),
+  SPD=c("#spd","#spdbpt","SPD","@spdbt","@spdde","@spdeuropa"),
+  LINKE=c("DIE LINKE",'@dielinke', '@linksfraktion'),
+  CSU=c("#csu","@cducsubt","@csu","@csu_bt","union","@junge_union"),
+  GRUENE=c("grüne","GRÜNE","grüne jugend","grünen")
+    ))
+
+
+partytok<-tokens_lookup(tweet_toks,padict,levels=1)
+
+
+
+#### sentiment analysis
+
+
+setwd('C:\\Users\\msaeltze\\Documents\\Dissertation\\Structure\\Paper 2\\Text Cleaning Twitter\\dictionary\\SentiWS_v1.8c')
+
+
+
+
+pos<-read.table('posimp.txt',sep='\t')
+neg<-read.table('negimp.txt',sep='\t')
+
+negative<-as.character(neg[,1])
+positive<-as.character(pos[,1])
+
+
+pos<-read.table('pos.txt',sep='\t',header=F)
+
+
+class(pos[,1])
+
+
+sentdic<-dictionary(list(
+  poswords=positive,
+  negwords=negative
+  ))
+
+
+### somehow cross these tables, to isolate party evaluations. then check party effect, coalition effect, individual effect and interactions
+
+senttok<-tokens_lookup(tweet_toks,sentdic,levels=1)
+
+c<-cbind(groups_corp,senttok,partytok)
+
+length(groups_corp)
+
+  
+### 
+
+### names -> collocation analysis allows address words ofren together 
+
+
+news_toks <- tokens(groups_corp, remove_punct = TRUE)
+cap_col <- tokens_select(news_toks, '^[A-Z]', valuetype = 'regex', case_insensitive = FALSE, padding = TRUE) %>% 
+  textstat_collocations(min_count = 100)
+head(cap_col, 30)
+
+
+
+### dictionary approach to parties 
+
+
+
+
+# parties 
+
+p<-as.character(levels(t$party))
+
+p<-c(p,'grünen','grüne','union','jusos','junge union','junge alternative','julis','grüne jugend')
+p<-p[-1]
+
+
+
+
+## party accounts 
+
+# parties but not hashtags or accounts
+
+# party leaders 
+
+
+### classify tweets 
+
+
+
+### run sentiment analysis 
+
+  # -> party evaluations
+
+### test whether evaluations change over time
+
+
+
+### test whether evaluations change over individual attributes 
+
+
+
+
+### kann man dann auch compounden, die frage ist nur wie isolieren wir dann namen?
+# englisch alles einfacher 
+
+## maybe tokenize?
+
+
+## retweets and replies 
+
+tweet_dfm <- dfm(tweet_toks, select = "@*")
+
+freq <- textstat_frequency(tweet_dfm, n = 10, groups = docvars(tweet_dfm, 'party'))
+
+head(freq, 70)
+
+
+### we can use those to create dictionaries to anylze the non conventioned text
+
+
+
+
+
+CDU <- kwic(tweet_toks, phrase('#FDP')) #which text numbers (≠ authors) mention social protection
+
+
+summary(groups_corp)
+
+tokens(groups_corp,remove_twitter=T)
+
+text_dfm <- dfm(groups_corp, remove_punct = TRUE, remove_numbers=TRUE)
+
+
+text_dfm

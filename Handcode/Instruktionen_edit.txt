@@ -1,0 +1,14 @@
+Anleitung Sentiment Coding
+
+Bitte lest einen Tweet nach dem anderen und trefft eine möglichst spontane Entscheidung. Sprecht euch nicht ab, sondern geht die Audrücke unabhängig voneinander durch. Denkt nicht so lange nach, sondern coded affektiv in einer nächsten 5 Kategorien.
+
+1. Der Redner verwendet positive Sprache, zum Beispiel drückt er Unterstützung, Bewunderung, positive Einstellung, Vergebung,  Erfolg oder einen anders gearteten positiven emotionalen Zustand aus.
+
+2. Der Redner verwendet negative Sprache, z. B. zum Ausdruck von Kritik,  negativer Einstellung, in Frage stellen der der Gültigkeit / Kompetenz, Versagen und anderen negative Emotionen
+
+3. Der Sprecher verwendet Sarkasmus, Spott oder Hohn
+
+4. Der Sprecher verwendet teilweise positive und teilweise negative Ausdrücke, in einem Maße das keine der Seiten klar überwiegt.
+
+5. Der Sprecher verwendet weder eine positive Sprache noch eine negative Sprache
+
