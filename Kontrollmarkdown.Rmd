@@ -27,7 +27,7 @@ TOP:
 
 # Teil 1: Willkommen in Big Data
 
-Soziale Medien sind Teil unseres Alltags geworden, wir kommunizieren in Form von privaten Kurznachrichten, aber auch in öffentlich zugänglichen Status updates, Kommentaren, likes und retweets. Für Sozialwissenschaftler, aber auch Unternehmen ist das ein gewaltiger Datenschatz, der es uns erlaubt, auf direkte Befragung zu verzichten und Schlüsse aus euren digitalen Spuren zu ziehen. Dies wird besonders am Beispiel Emotionen deutlich. Für Unternehmen ist es wichtig zu wissen, ob ein Produkt gut ankommt. Für Politikwissenschaftler ist es wichtig, ob den Kommentatoren eine Rede eines Politikers gefallen hat. Doch wie lassen sich die Gefühle von tausenden Followern messen?
+Soziale Medien sind Teil unseres Alltags geworden, wir kommunizieren in Form von privaten Kurznachrichten, aber auch in öffentlich zugänglichen Statusupdates, Kommentaren, likes und retweets. Für Sozialwissenschaftler, aber auch Unternehmen, ist das ein gewaltiger Datenschatz, der es uns erlaubt, auf direkte Befragung zu verzichten und Schlüsse aus euren digitalen Spuren zu ziehen. Dies wird besonders am Beispiel Emotionen deutlich. Für Unternehmen ist es wichtig zu wissen, ob ein Produkt gut ankommt. Für Politikwissenschaftler ist es wichtig, ob den Kommentatoren eine Rede eines Politikers gefallen hat. Doch wie lassen sich die Gefühle von tausenden Followern messen?
 
 Ein großer Teil der 'Big Data' Debatte bezieht sich auf die gewaltigen Datenmengen, die soziale Netzwerke produzieren. Das Problem ist nicht mehr der Mangel, sondern der Überfluss ungeordneter Informationen. Aber wie kann man sich diese Auswertung solcher Datenmengen vorstellen? Was soll man mit 200.000 Tweets anfangen? 
 Natürlich nicht, indem ihr sie selbst lest. Stattdessen überlassen wir es dem Computer. Dieser Workshop gibt eine Einführung in automatisierte Analyse von Sprache, sowohl theoretisch als auch praktisch. Mit der Open Source Programmiersprache R erarbeiten wir ein kleines Programm, mit dem ihr Tweets extrahieren und analysieren können. Ein besonderer Fokus liegt auf der sogenannten Sentiment Analysis, mit der wir die Wortwahl von Menschen in Texten quantifizieren können. 
@@ -87,15 +87,10 @@ library(qdapRegex)
 library(wordcloud)
 library(utils)
 
-
-
 ```
 
-Wir beginnen mit der Datensammung. Zu diesem ZWeck brauche wir einen twitter API key. Diesen erhaltne wir, sobald wir einen Twitter Entwickler Zugang haben. Twitter genehmenigt
-für Mitglieder von Bildungseinrichtungen, aber auch kommerzielle Entickler Zugänge ohne größere
-Nachweispflicht. Für eigene Analysen empfehle ich, einen Account zu beantragen-
-
-Für diesen Workshop stelle ich meine Keys bereit. Sie befinden sich unter einem temprorären Dropboxlink
+Wir beginnen mit der Datensammung. Zu diesem Zweck brauchen wir einen twitter API key. Diesen erhalten wir, sobald wir einen Twitter Entwickler Zugang haben. Twitter genehmenigt für Mitglieder von Bildungseinrichtungen, aber auch kommerziellen Enticklern Zugänge ohne größere
+Nachweispflicht. Für eigene Analysen empfehle ich, einen Account zu beantragen. Für diesen Workshop stelle ich meine Keys bereit. Sie befinden sich unter einem temprorären Dropboxlink
 
 ```{r}
 toklink<-''
@@ -115,7 +110,7 @@ call_api(input,toklink=toklink)
 ```
 ### Daten einlesen 
 
-Jetzt sollten sich einige csv files in dem data ordner befinden. 
+Jetzt sollten sich einige csv files in dem data Ordner befinden. 
 Die nächste Funktion läd diese nun in die Environment
 
 ```{r,warning=FALSE}
@@ -127,18 +122,20 @@ working<-import_tw(dat) #inp=input if your want a specific account, not all
 ### Daten inspizieren
 
 Herzlichen Glückwunsch, Sie haben ihre ersten Social Media Daten gesammelt. 
-Die Datei working beinhaltet jetzt unsere Tweets. Sie können oben rechts auf den kleinen blauen Pfeil vor working klicken und lesen, was Sie so gefunden haben. Die maximale Anzahl pro account ist auf die letzten 3200 tweets limitiert, eine Vorgabe von Twitter. Schauen wir mal, was wir alles gefunden haben.
+Das Objekt working beinhaltet jetzt unsere Tweets. Sie können oben rechts auf den kleinen blauen Pfeil vor working klicken und lesen, was Sie so gefunden haben. Die maximale Anzahl pro account ist auf die letzten 3200 tweets limitiert, eine Vorgabe von Twitter. Schauen wir mal, was wir alles 
+gefunden haben.
+
+### Datenreichtum auf Twitter
+
+Twitter bietet die Möglichkeit eine Vielfalt an Daten zu bekommen, die wir nutzen können um uns ein Bild über die Nutzer zu machen und ihre Verhaltensweisen zu studieren.
+
+Zunächst schauen wir uns einmal die Vielfalt an Variablen an:
+
 ```{r}
 
 names(working)
 
 ```
-### Datenreichtum auf Twitter
-
-Twitter bietet die Möglichkeit eine Vielfalt an Daten zu bekommen, die wir nutzen können um uns ein Bild 
-über die Nutzer zu machen und ihre Verhaltensweisen zu studieren.
-
-Zunächst schauen wir uns einmal die Vielfalt an Variablen an:
 
 Der names() Befehl sagt uns, was wir über jeden Tweet wissen. Hierbei handelt es sich um die Variablennamen unseres Datensatzes. Was denken Sie, was wir nun über die Tweets herausfinden können? Besprechen Sie sich kurz mit den anderen Seminarteilnehmern und überlegen, was wir alles üben den Account herausgefunden haben.
 
@@ -163,9 +160,6 @@ daytime +scale_x_datetime(labels = function(x) format(x, format = "%H:%M"))+
 ```
 
 Diskussion: Was sind die Datenschutz Implikationen dieser Daten?
-
-### Datenschutz auf Twitter
-![](fermirotica.png)
 
 # Teil 2: Was tun mit Big Data?
 
@@ -236,9 +230,6 @@ wordcloud(words = d$word, freq = d$freq, min.freq = 1,
           colors=brewer.pal(8, "Dark2"))
 ```
 
-
-
-
 Hier haben wir die 3200 Tweets bereits stark reduziert, so dass wir mit einem Blick einen Eindruck bekommen.
 
 ```{r}
@@ -248,8 +239,7 @@ timetrend+geom_freqpoly(binwidth=2604800, size=1)+
 # binwidth: woche-> 604800, tag-> 86400, monat -> 2.6 mio
 ```
 
-
-Für den ersten Blick ist das erhalten von Flektionen sinnvoll, für die Analyse hingegen kann es sinnvoll sein, Wortähnlichkeiten zu erhöhen und Variation zu reduzieren. 
+Für den ersten Blick ist das erhalten von Flektionen angenehm, für die Analyse hingegen kann es sinnvoll sein, Wortähnlichkeiten zu erhöhen und Variation zu reduzieren. 
 
 ```{r,warning=FALSE,message=F}
 working$clean<-cleaner(working,stem=T)
@@ -263,6 +253,7 @@ i<-17
 print(cbind(working$text[i],working$clean[i]))
 
 ```
+
 Das sieht erstmal nach Kauderwelsch aus. Dennoch ist die Performanz dieser Ansätze deutlich höher.
 
 ## Sentiment Analyse
@@ -272,7 +263,6 @@ Doch was bedeuten diese Worte? Wir können uns mit der Wordcloud einen Eindruck v
 Es gibt eine Reihe von Dimensionen von Sprache. Wie kompliziert ist ein Text? Ist er politisch links? Ist er Spam? Skalierungsverfahren erlauben anhand von relativen Worthäufigkeiten zu differenzieren.
 
 In diesem Workshop geht es um Emotionalität, eine weitere Dimension, die man basierend auf Wortverwendung erfassen kann. Wie emotional sind die Worte, die ein Account verwendet? Sind sie positiv oder negativ?
-
 
 Sentiment oder Tonanalyse stammt ursprünlich aus der Marktforschung, dem Opinion Mining. Wie kann man automatisiert erkennen, ob tausende von Kunden ein Produkt mögen oder nicht. 
 Die sogenannte Sentiment Analyse gibt uns Aufschluss. Für diesen Zweck nutzen wir vordefinierte Dictionaries. Dictionaries sind Wörterbücher die zwischen dem Computer und der natürlichen Sprache vermitteln. Die übersetzen Worte in Zahlen, in einen Tonalitätsangae auf einer einigen Dimension. Diese Dimension bezieht sich auf Positivität und Negativität.
@@ -299,7 +289,6 @@ Einen sehr neuen, auf Politik zugeschnittenen SentiCorpus
 
 *Christian Rauh (2018) Validating a sentiment dictionary for German        political language-a workbench note, Journal of Information Technology & Politics, 15:4, 319-343, DOI: 10.1080/19331681.2018.1485608*
  
-
 ```{r,message=FALSE,warning=FALSE}
 
 res_senti<-apply_senti(working,'sentiws',stemmed=T)
@@ -308,14 +297,14 @@ rau_senti<-apply_senti(working,'rauh',stemmed=T)
 
 ```
 
+Wie Sie merken, dauert das einen Moment. Das liegt daran, dass der Computer gerade jeden tweet in seine Einzelteile zerlegt und jedes Wort mit etwa 10.000 Wörtern abgeglichen wird. Die zugrunde liegenden Rechenoperationen sind in einem der Skripte definiert, auf die dieses Interface skript zugreift.
+
 ```{r,message=FALSE,warning=FALSE}
 
 rauhscore<-rau_senti$score
 rauhpol<-rau_senti$pol
 res<-cbind(res_senti,rauhscore,rauhpol)
 ```
-
-
 
 
 Wir fügen ein paar unserer gewonnenen Daten in einen einzigen Datensatz zusammen und beginnen mit der Analyse der Sentiments
@@ -338,16 +327,17 @@ setwd(root)
 cor(res[,c(39,41,43)])
 ```
 
+Übung: Laden Sie eine csv file herunter und codieren Sie die tweets entspechend der Instruktionen im Ordner \handcode.
+
 ```{r,results="hide"}      
 setwd(root)
 write.csv(working[1:30,4],'validate.csv')    
       
 ```
+
 Moderne Ansätze an Sentiment Analysis verwenden daher Supervised Machine Learning. Anstatt selbst zu definieren, welche Worte positiv oder negativ sind, codieren wir tweets in toto und lassen den Computer semantische Muster extrahieren. Dies ist eine Vorstufe der künstlichen Intelligenz und geht über die Reichweite dieses Seminars hinaus. 
 
 Diskussion: Ergibt es Sinn, Stimmungen durch solche Instrumente zu messen?
-
-----Pause-----
 
 # Teil 3: Ton und Politik in den Sozialen Medien 
 
@@ -387,7 +377,7 @@ t.effect+geom_line(size=1, col="red")+
 
 ```
 
-
+Wie wir oben im Modell sehen, geht es aber nicht nur um die Verwendung von Negativität, sondern auch um Professionalität. Die Verwendung von URLs und Hashtags haben ebenfalls eine starken Effekt auf Reichweite.
 
 ```{r}
 
@@ -437,6 +427,10 @@ Wir sind noch einen Schritt weiter gegangen und haben nicht nur geschaut,
 ob es allgemein für Politiker einen Negativity incentive gibt,
 wie stark dieser für verschiedene Politker is und ob er sich durch die Struktur der Follower erklären lässt. In anderen Worten: Sorgen Echokammern dafür, dass Politiker eher bereit sind zu polarisieren?
 
+Um dies zu messen, haben wir die ideologischen Positionen der Follower geschätzt. Diese Methodik selbst auszuprobieren sprengt den Rahmen des Workshop da die Rechenzeit dies mit 16.000 Followern, auf denen der Datensatz basiert, zu berechnen in etwa der Länge des Workshops entspricht. 
+
+Kurz gesagt betrachten wir die soziale Netzwerkposition in Form von Friends, wem also gefollowed wird. Wir gehen davon aus, das Menschen homophil sind. Das bedeutet Sie bauen soziale Beziehungen eher mit Menschen auf die ihnen ähnlich sind, als unähnlich. Menschen die den gleichen Accounts folgen sind sich also ähnlich. Nur was ist die Dimension der Ähnlichkeit? Für diesen Zweck haben wir die Friends aus einer politisch geprägten Stichprobe gesammelt. Wir gehen davon aus, dass die Entscheidung einem Politiker zu folgen vor allem durch die politische Einstellung geprägt ist.
+
 ```{r,message=FALSE,warning=FALSE}
 setwd(examples)
 individual.data<- read.csv("secondary_data.csv")
@@ -446,6 +440,14 @@ aud.str<-ggplot(individual.data, aes(x=median_pos, y=var_pos, col=party, size=fo
 aud.str+geom_point(alpha=0.5)+
   labs(x="Median Follower", y="Variance", col="Partei", size="Anzahl Follower")+  scale_color_manual(values = my.colors) 
 ```
+
+Was wir nun hier sehen ist eine Grafik des ideologischen Spektrums der Landtagswahlen. Jeder Kreis ist ein Politiker und die Position in dem Raster stellt seine Followerschaft dar. Je weiter links in der Grafik, umso weiter Links ist der durchschnittliche Follower. Je weiter oben in der Grafik, umso höher ist die Varianz, also die Weite der Followerschaft. Politiker die hier eine hohe Varianz haben werden von sehr **unterschiedlichen* Menschen gefolgt. 
+
+Was fällt ihnen an dem Graphen auf?
+
+### Was erklärt den Anreiz negativ zu sein?
+
+Wir verwenden nun diese Verteilung um die Stärke des Negativitätsanreizes pro Politiker zu schätzen. Wir vermuten, dass je homogener die Follower, umso größer der Anreiz, denn wenn man eine Filterbubble hat, wollen alle in etwa das gleiche hören.
 
 ```{r,message=FALSE,warning=FALSE}
 
@@ -462,6 +464,9 @@ var.effect+geom_line()+
 
 ```
 
+In diesem Plot sieht man, dass unsere Theorie nicht ganz falsch ist. Wir sehen nich nur, dass die zunehmende Varianz die Retweet rate pro negativem Tweet reduziert, sondern auch das die Parteimitgliedschaft einen Anreiz schafft. 
+
+
 ```{r,message=FALSE,warning=FALSE}
 effect.med<- predict.secondary(neg.model, individual.data, by.var = F)
 my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
@@ -470,8 +475,14 @@ med.effect+geom_line()+
   labs(x="Median", y="Negativity Incentive", col="Partei")+  scale_color_manual(values = my.colors) 
 
 ```
+Für die links-rechts Position ist der Effekt umgekehrt. Gegeben der Partei, und der Varianz wird der Anreiz schwächer, je weiter rechts die Follower sind. Natürlich ist diese Position stark bestimmt durch die Partei. Aus diesem Grund beginnen rechte Parteien auf höherem Niveau. 
 
-Abschlussdiskussion: Asoziale Medien?
+Eine Erklärung kann hier sein, dass Parteien die so oder so negativ sind, keinen weiteren Nutzen aus zusätzlicher Negativität ziehen. Für Parteien, die meistens positiv sind, ist es eher etwas besonderes.
+
+
+
+
+### Abschlussdiskussion: Asoziale Medien?
 
 
 
