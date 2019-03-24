@@ -1,0 +1,1232 @@
+#install.packages('knitr')
+
+```{r}
+ins<-installed.packages()
+if(any(grepl('knitr',ins[,1]))==F){install.packages('knitr')}
+if(any(grepl('here',ins[,1]))==F){install.packages('here')}
+library(here)
+
+```
+
+---
+title: "Sentiment Analysis in R"
+author: "Marius Saeltzer"
+date: "21 Februar 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+First we create a directory map of this folder.
+Insert your root directory here. Please use backslashes.
+```{r}
+root<-here()
+fun<-paste0(root,'/scripts/functions')
+script<-paste0(root,'/scripts')
+docu<-paste0(root,'/documentation')
+docufiles<-paste0(root,'/documentation/files')
+examples<-paste0(root,'/examples')
+dat<-paste0(root,'/data')
+machine<-paste0(root,'/ML')
+training<-paste0(machine,'/training')
+preprocessing<-paste0(root,'/preprocessing')
+
+```
+
+## Installation von Paketen
+
+Packages to install can be found in the commentated subscript.
+
+```{r,message=FALSE, warning=FALSE}
+setwd(fun)
+#source('unpack.R')
+```
+
+Activate packages. make nur not to run MASS here, since it shares the select function with dplyr. Also, make sure you have a stable internet connection.
+```{r, message=FALSE, warning=FALSE}
+library(rtweet)
+library(stringr)
+library(ggplot2)
+library(dplyr)
+library(qdapRegex)
+library(wordcloud)
+library(utils)
+library(caret)
+library(text2vec)
+
+```
+
+We start with data collection. You need API keys. I store mine online in a file that takes app and keys as variables of a csv file. The calling API function below uses this formatting to run keys.
+
+```{r,markdown='hide'}
+toklink<-''
+
+```
+## Datensammlung
+
+This is an easy wrapper for account scraping that accepts list of screennames or IDs as well as vectors.
+
+```{r}
+
+setwd(script)
+source('0_Call.R')
+input<-c('c_lindner')
+
+call_api(input,toklink=toklink)
+
+g<-get_timeline(input)
+
+
+
+
+```
+## Daten einlesen 
+
+It stores all collected data in the data folder. The following functions loops and appends the data in the correct format.
+```{r,warning=FALSE}
+setwd(script)
+source('1_select.R')
+## here we should specify
+working<-import_tw(dat) #inp=input if your want a specific account, not all 
+```
+
+# Sentiment Analysis in R
+
+Sentiment Analysis is a tried and true tool from text and opinion mining. It has seen several applications in political science over time. 
+
+In this presentation we apply a number of approaches to German language political twitter communication. This is quite a number of limitations. 
+
+First, the German language is morphologically quite complex due to flections, compound words and a lack of reliable dictionaries. 
+
+Twitter, like any social media communication is prone to slang, additional information, emoticons, hashtags etc
+
+Dictionary Approaches
+
+negation
+
+```{r}
+
+
+
+```
+
+compound words
+
+lemmatizer
+
+stemming 
+
+ngrams
+
+Politics: more formal, more polarization hidden in worduse. more technical, moderate. 
+
+
+In this presentation I will take a closer look and try to find the right mixture to get good sentiment analyisis. I will use two german language social media data sets: one is political in nature and corresponds to the substantial interest. The other is apolitical but large enough to use it for val
+
+To preprocess, first we validate the language variable of twitter using the google translation tool cld3. 
+
+
+```{r}
+
+if(is.null(working$lang)){
+  library('cld3')
+  working$lang<-detect_language(working$text)}
+
+working<-working[working$lang=='de',]
+
+```
+
+Next is preprocessing. We remove stopwords, punctuation, capitalization, hashtags, mentions and leave open the option to stem the text. This is recommended for dictionaries. If you do, make sure you later use the stemmed argument of the sentiment call.
+
+
+Function cleaner arguments
+  red=F   only removing social media stuff like html, hashtags etc  
+  stem=F  stemming based on the 
+
+
+```{r, message=FALSE,warning=FALSE}
+
+setwd(script)
+source('2_Preprocessing.R')
+clean<-cleaner(working)
+
+
+```
+Make sure it worked:
+
+```{r}
+i<-17
+print(cbind(working$text[i],working$clean[i]))
+
+```
+
+
+```{r}
+timetrend<-ggplot(working, aes(x=day, col=type))
+timetrend+geom_freqpoly(binwidth=2604800, size=1)+
+  labs(x="Monat", y="tweets", col="Art")
+# binwidth: woche-> 604800, tag-> 86400, monat -> 2.6 mio
+```
+
+
+```{r,warning=FALSE}
+
+setwd(script)
+source('3_Dictionary.R')
+dict<-get_senti()
+print(dict[sample(nrow(dict),10),])
+
+```
+
+### Dictionary Analysis
+
+Wir verwenden hier zwei deutschsprachige Dictionaries
+
+Den klassichen SentiWS für die deutsche Allgemeinsprache
+
+*Remus, Robert; Quasthoff, Uwe; Heyer, Gerhart (2010): SentiWS - a Publicly Available German-language Resource for Sentiment Analysis. In: Proceedings of the 7th International Language Ressources and Evaluation, pp. 1168-1171.*
+ 
+Einen sehr neuen, auf Politik zugeschnittenen SentiCorpus 
+
+*Christian Rauh (2018) Validating a sentiment dictionary for German        political language-a workbench note, Journal of Information Technology & Politics, 15:4, 319-343, DOI: 10.1080/19331681.2018.1485608*
+ 
+ 
+citation senti strenght
+ 
+```{r,message=FALSE,warning=FALSE}
+
+res_senti<-apply_senti(working,'sentiws')
+
+rau_senti<-apply_senti(working,'rauh',stemmed=T)
+
+str_senti<-apply_senti(working,'sentistr')
+
+```
+
+Wie Sie merken, dauert das einen Moment. Das liegt daran, dass der Computer gerade jeden tweet in seine Einzelteile zerlegt und jedes Wort mit etwa 10.000 Wörtern abgeglichen wird. Die zugrunde liegenden Rechenoperationen sind in einem der Skripte definiert, auf die dieses Interface skript zugreift.
+
+```{r,message=FALSE,warning=FALSE}
+
+rauhscore<-rau_senti$score
+rauhpol<-rau_senti$pol
+res<-cbind(res_senti,rauhscore,rauhpol)
+```
+
+
+Wir fügen ein paar unserer gewonnenen Daten in einen einzigen Datensatz zusammen und beginnen mit der Analyse der Sentiments
+
+### Überblick über sentiment Analyse
+Um einen ersten Überblick für unsere Sentiments zu bekommen, können wir untersuchen wie unser Nutzer in der letzten Woche getweetet hat.
+
+```{r}
+lastweek<- ggplot(res[res$day>"2019-02-15",], aes(x=day, y=score, col=type))
+lastweek+geom_jitter()+
+  labs(x="Tag", y="Ton", col="Art")
+```  
+
+### Validation
+
+```{r,echo=FALSE}      
+setwd(root)
+```
+
+Übung: Laden Sie eine csv file herunter und codieren Sie die tweets entspechend der Instruktionen im Ordner \handcode.
+
+```{r,results="hide"}      
+setwd(root)
+write.csv(working[1:30,4],'validate.csv')    
+      
+```
+
+# From here, we start the validation st
+
+
+```{r}
+setwd(script)
+
+source('1_select.R')
+source('2_preprocessing.R')
+source('3_Dictionary.R')
+
+setwd(training)
+t<-read.csv('exo_ger.csv',stringsAsFactors = F)
+setwd(dat)
+write.csv(t,'training.csv')
+working<-import_tw(dat)
+```
+
+```{r}
+setwd(training)
+t<-read.csv('trainingset_large.csv',stringsAsFactors = F)
+setwd(dat)
+write.csv(t,'training_large.csv')
+working<-import_tw(dat)
+```
+
+
+Pipeline:
+```{R}
+
+#working$lang<-detect_language(working$text)
+working<-working[working$lang=='de',]
+working$sentiment<-tolower(working$sentiment)
+```
+We have to go from a continous variable based on the dictionary to the qualitative form used in the predictor. To do so, we use a cut off value based on the standard deviation of the sentiment score. 
+
+First, we compute the raw number of negative and positive weights.
+
+## Comparing dictionary performance
+
+
+Binarize can be used for all forms of sentiments and uses a cutoff value as arguments. 
+We then compare the results from the hand coding with the results from sentiment analysis.
+
+```{r}
+working_s<-cleaner(working,stem=T) 
+working<-cleaner(working,stem=F) 
+```
+
+```{r}
+w01<-apply_senti(working_s,'rauh',stemmed=T)
+
+cut<-choose_cut(w01)
+cut<-sample(cut,1)
+
+wx<-binarize_senti(w01,cutoff=cut)
+rauh_stem_tab<-stats(wx)
+rauh_stem_tab
+
+```
+
+0.5138
+
+Without the application of stemming 
+```{r}
+w02<-apply_senti(working,'rauh',stemmed=F)
+cut<-choose_cut(w02) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w02,cut)
+rauh_tab<-stats(wx)
+rauh_tab
+```
+The stemmed rauh model comes up to 52 percent accuracy.
+
+
+With stemmed data, hj
+```{r}
+
+w03<-apply_senti(working_s,'hj',stemmed=T)
+cut<-choose_cut(w03) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w03,cut)
+hj_stem_tab<-stats(wx)
+hj_stem_tab
+```
+0.43
+
+Unstemmed, hj
+```{r}
+
+w04<-apply_senti(working,'hj',stemmed=F)
+cut<-choose_cut(w04) # run the best classification
+cut<-sample(cut,1)
+
+wx<-binarize_senti(w04,cut)
+
+hj_tab<-stats(wx)
+hj_tab
+
+
+```
+It is better to guess ;)
+
+With stemmed data, sentiws
+
+
+```{r}
+w05<-apply_senti(working_s,'sentiws',stemmed=T)
+cut<-choose_cut(w05) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w05,cut)
+senti_ws_stemmed<-stats(wx)
+senti_ws_stemmed
+```
+
+0.53, performs slightly better than rauh
+
+Unstemmed, sentiws
+```{r}
+
+w06<-apply_senti(working,'sentiws',stemmed=F)
+wx<-binarize_senti(w06)
+cut<-choose_cut(w06) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w06,cut)
+sentiws_tab<-stats(wx)
+
+```
+0.54
+
+
+
+
+With stemmed data, sentistrength
+```{r}
+w07<-apply_senti(working_s,'sentistr',stemmed=T)
+cut<-choose_cut(w07) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w07,cut)
+sentistr_stemmed<-stats(wx)
+```
+0,52
+Unstemmed, sentistr
+
+```{r}
+
+w08<-apply_senti(working,'sentistr',stemmed=F)
+cut<-choose_cut(w08) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w08,0)
+sentistr_tab<-stats(wx)
+```
+
+
+Pooled: for computation time pourposes, saved as csv to reimport.
+```{r}
+
+setwd(examples)
+working<-read.csv('safesenti3.csv')
+
+w1<-working[,c(1:10,20,21)]
+w2<-working[,c(1:10,22,23)]
+w3<-working[,c(1:10,24,25)]
+
+w1<-binarize_senti(w1,cutoff=1.95)
+w2<-binarize_senti(w2,cutoff=1.95)
+w3<-binarize_senti(w3,cutoff=1.95)
+```
+
+```{r}
+
+st<-stats(w2)
+
+```
+
+comparing individuals 
+```{r}
+
+w<-apply_senti(working,'rauh',stemmed=T)
+names(w)
+choose_best 
+
+stats(working)
+
+```
+comparing the pooled
+
+```{r}
+
+working<-cleaner(working,stem=T) 
+#working<-apply_senti(working,dict='pooled',clean=T,stemmed=T)
+#working$sentiment<-tolower(working$sentiment)
+
+#setwd(examples)
+#write.csv(working,'safesenti3.csv')
+
+## cleaned, not stemmed
+
+pooled_clean<-stats(w1)
+### not clean
+pooled_unclean<-stats(w2)
+### clean, stemmed
+pooled_cleaner<-stats(w3)
+
+
+```
+
+In the pooled model, the best cut off point seems to be 1, always, which makes sense. All predictions top out at about 52 percent prediction rate using conservative means of stopword removal and stemming, which has little effect on prediciton capability. 
+
+Checking neutrality versus emotional tone does not work at all. While reducing the possibility of error by reducing the possible options, dictionaries at best perform 5% better than just guessing. 
+
+Traditional approaches seem highly problematic. For the future, negation and booster words might work.
+
+
+# Machine Learning Approaches
+
+Modern approaches to sentiment analysis use supervised machine learning. Instead of defining, which words are positive or negative, we code tweets in total and let the computer extract semantic patterns. Dies ist ein Vorstufe der künstliche Intelligenz und geht über die Reichweite dieses Seminars hinaus. 
+
+After testing the dicionaries on the hand coded sets, we utilize supervised machine learning. This is rather costly and not as easy to implement without ressouces on your own data, but the existence of large training data sets allows us to test them in comparison to dictionaries. 
+
+naive bayes
+
+k nearest
+
+tree based
+
+support vector
+
+vectorization?
+
+```{r}
+setwd(script)
+source('4_Machine_Learning.R')
+setwd(dat)
+working<-import_tw(dat)
+working<-cleaner(working)
+wm<-learn_bayes(working,split=0.2,process=T) # alternative algos
+wm<-wm[wm$split=='Test',]
+
+s<-stats(wm)
+
+wm$ID<-as.character(wm$ID)
+w3$ID<-as.character(w3$ID)
+
+w<-merge(wm,w3,by='ID')
+
+w<-w[w$split=='Test',]
+
+confusionMatrix(as.factor(w$pred_l.x),as.factor(w$pred_l.y))
+
+``` 
+
+We find not that much overlap between the predictions.
+```{R}
+
+pred_com<-w$pred_l.y
+
+pred_com<-ifelse(w$pred_l.y=='neutral'&w$pred_l.x!='neutral',w$pred_l.x,pred_com)
+
+pred_com<-ifelse(w$pred_l.x=='neutral'&w$pred_l.y!='neutral',w$pred_l.y,pred_com)
+
+pred_com<-ifelse(w$pred_l.y==w$pred_l.x,w$pred_l.x,pred_com)
+
+pred_com<-ifelse(w$pred_l.y=='positive'&w$pred_l.x=='negative','neutral',pred_com)
+pred_com<-ifelse(w$pred_l.y=='negative'&w$pred_l.x=='positive','neutral',pred_com)
+
+table(pred_com)
+
+pred_com<-as.factor(pred_com)
+
+confusionMatrix(pred_com,as.factor(w$sentiment.x))
+```
+No improvement
+
+```{r}
+
+pred_com<-'unclear'
+
+pred_com<-ifelse(w$pred_l.y==w$sentiment.x,w$pred_l.y,pred_com)
+
+pred_com<-ifelse(w$pred_l.x==w$sentiment.x,w$pred_l.x,pred_com)
+
+table(pred_com)
+
+clear<-ifelse(w$sentiment.x==w$pred_l.x & 
+                w$pred_l.x==w$pred_l.y,'clear','unclear')
+
+sum(w$sentiment.x==w$pred_l.x)
+sum(w$sentiment.x==w$pred_l.y)
+
+max<-ifelse(w$sentiment.x==w$pred_l.x | 
+                w$sentiment.x==w$pred_l.y,'clear','unclear')
+table(max)
+
+table(clear)
+
+## which version of dictionary complements best with 
+
+```
+
+
+To compare these different approaches we use the share of correctly classified tweets.
+
+```{r}
+w<-stats(w1)
+w
+
+```
+
+
+It seems as if preprocessing does not help, quite to the contrary.
+
+
+
+
+```{r}
+setwd(script)
+
+source('5_compare.R')
+
+res<-compare(working)
+
+res<-plot_compare(working)
+
+```
+
+In the next steps of the project, I will use the large sentiment corpora using sentiment analysis in python.
+
+Potsdam Corp
+
+
+
+Diskussion: Ergibt es Sinn, Stimmungen durch solche Instrumente zu messen?
+
+
+
+
+### Small set
+
+```{r}
+
+setwd(script)
+
+source('1_select.R')
+source('2_preprocessing.R')
+source('3_Dictionary.R')
+
+setwd(training)
+t<-read.csv('exo_ger.csv',stringsAsFactors = F)
+setwd(dat)
+write.csv(t,'training.csv')
+working<-import_tw(dat)
+
+```
+```{r}
+
+working_s<-cleaner(working,stem=T) 
+working<-cleaner(working,stem=F) 
+
+w01<-apply_senti(working_s,'rauh',stemmed=T)
+
+choose_cut(w01,typ='accuracy',plotit=T)
+choose_cut(w01,typ='negrecall',plotit=T)
+
+cut<-choose_cut(w01,'accuracy')
+wx<-binarize_senti(w01)
+rauh_stem_tab<-stats(wx,'negrecall')
+rauh_stem_tab
+
+```
+totally random
+
+
+```{r}
+
+
+
+w02<-apply_senti(working,'rauh',stemmed=F)
+cut<-choose_cut(w02) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w02)
+rauh_tab<-stats(wx)
+rauh_tab
+```
+
+```{r}
+w03<-apply_senti(working_s,'hj',stemmed=T)
+cut<-choose_cut(w03) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w03)
+hj_stem_tab<-stats(wx)
+hj_stem_tab
+```
+
+```{r}
+
+w04<-apply_senti(working,'hj',stemmed=F)
+cut<-choose_cut(w04) # run the best classification
+cut<-sample(cut,1)
+
+wx<-binarize_senti(w04)
+
+hj_tab<-stats(wx)
+hj_tab
+```
+
+
+```{r}
+w05<-apply_senti(working_s,'sentiws',stemmed=T)
+cut<-choose_cut(w05) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w05)
+senti_ws_stemmed<-stats(wx)
+senti_ws_stemmed
+```
+
+```{r}
+
+w06<-apply_senti(working,'sentiws',stemmed=F)
+wx<-binarize_senti(w06)
+cut<-choose_cut(w06) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w06,cut)
+sentiws_tab<-stats(wx)
+```
+
+```{r}
+
+w07<-apply_senti(working,'sentistr')
+cut<-choose_cut(w07) # run the best classification
+cut<-sample(cut,1)
+wx<-binarize_senti(w07)
+sentistr_stemmed<-stats(wx)
+
+```
+
+#  The State Campaing Twitter Set
+
+Next, we use a political data set. Sadly very small, but performance testing of sentiment dictionaries, it doesn't really matter.
+
+Data was handannotated by two student assistants.
+
+```{r}
+tx<-read.csv('C:/Users/admin/scrape/ML/training/landtag/sentiment_handcode_luca.csv',stringsAsFactors = F)
+
+tx2<-read.csv('C:/Users/admin/scrape/ML/training/landtag/sentiment_handcode_sarah.csv',stringsAsFactors = F)
+```
+
+
+
+
+## Validation Subset
+```{r}
+
+tx<-merge(tx,tx2,by='number')
+
+lab<-c('Positive','Negative','Sarcasstic','Ambivalent','Neutral')
+x<-factor(tx$code.x,labels=lab)
+y<-factor(tx$code.y,labels=lab)
+
+t<-confusionMatrix(x,y)
+
+tab<-table(tx$code.x,tx$code.y)
+
+t<-t$table
+
+stargazer(t,summary=F)
+
+
+
+```
+We find a intercoderreliability of over 80 percent and a kappa of 0.75 which points to high reliability. 
+
+We also create a small validation data set which only consists of the double validated data.
+```{r}
+valset<-tx[tx$code.x==tx$code.y,]
+
+valset<-valset[is.na(tx$code.x)==F,]
+
+names(valset)[2]<-'text'
+
+ts2<-cleaner(valset)
+s<-s[s$code.x!=3,]
+s<-s[is.na(s$code.x)==F,]
+lab<-c('positive','negative','ambi','neutral')
+
+s$codef<-factor(s$code.x,labels=lab)
+
+#working<-s
+
+
+```
+
+
+We keep working with the larger ds.
+
+```{r}
+s<-tx2
+s<-s[is.na(s$code)==F,]
+s<-s[s$code!=3,]
+lab<-c('positive','negative','ambi','neutral')
+s$codef<-factor(s$code,labels=lab)
+s1<-cleaner(s)
+s2<-cleaner(s,stem=T)
+
+```
+
+One of the major concerns I based this study upon is the question of we classified the negativity level of tweets reliably by counting all the words. The best approximation is to check whether we can predict the negativity property of a tweet by a negative word score of higher than zero.
+
+```{r}
+comp<-function(working){pol<-working$pol
+score<-working$score
+neg<-pol-abs(score)/2
+working$neg<-ifelse(score<0,neg,0)
+working$neglab<-factor(ifelse(working$neg>2,'negative','not'))
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+confusionMatrix(working$neglab,working$negreal)}
+
+
+```
+
+
+```{r}
+
+working<-s01
+
+comp2<-function(working){
+working$pred_l<-'neutral'
+
+working$pred_l<-ifelse(working$pol>1.5*abs(score),'ambi',working$pred_l)
+
+working$pred_l<-ifelse(working$score>0.2,'positive',working$pred_l)
+working$pred_l<-ifelse(working$score<0,'negative',working$pred_l)
+working$pred_l<-factor(working$pred_l)
+
+
+confusionMatrix(working$pred_l,working$codef)
+}
+
+```
+
+
+```{r}
+s$sentiment<-s$codef
+wm<-learn_bayes(s,split=0.2,process=T)
+wm<-wm[wm$split=='Test',]
+stats(wm)
+
+working<-s
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+working$sentiment<-working$negreal
+w1<-learn_bayes(working,process=T,split=0.2)
+w1<-w1[w1$split=='Test',]
+stats(w1)
+
+```
+
+
+
+Since the number of options is now 2 the accuracy has to be relativized, but the 
+
+
+```{r}
+setwd(script)
+source('3_Dictionary.R')
+
+s00<-apply_senti(s1,'pooled',stemmed=F)
+```
+
+
+```{r}
+s01<-apply_senti(s2,'pooled',stemmed=T)
+```
+
+```{r}
+s02<-apply_senti(s1,'rauh',stemmed=F)
+
+```
+
+
+```{r}
+s03<-apply_senti(s2,'rauh',stemmed=T)
+```
+
+
+
+```{r}
+s04<-apply_senti(s1,'sentiws',stemmed=F)
+```
+
+```{r}
+
+s05<-apply_senti(s2,'sentiws',stemmed=T)
+```
+
+```{r}
+
+s06<-apply_senti(s1,'sentistr',stemmed=F)
+```
+
+```{r}
+s07<-apply_senti(s2,'sentistr',stemmed=T)
+```
+
+```{r}
+
+dll<-list(
+ s00,
+ s01,
+ s02,
+ s03,
+ s04,
+ s05,
+ s06,
+ s07)
+
+dictionary<-c('pooled_stem','pooled','rauh_stem','rauh','sentiws_stem','sentiws','sentristr_stem','sentistr')
+
+comp(s00)
+comp(s01)
+
+dllx<-lapply(dll,comp)
+acc_1<-c()
+for(i in 1:length(dllx)){
+  acc_1[i]<-unlist(dllx[[i]][3][1])
+}
+
+col1<-acc_1
+
+
+comp2(s00)
+
+dllx<-lapply(dll,comp2)
+
+acc_1<-c()
+for(i in 1:length(dllx)){
+  acc_1[i]<-unlist(dllx[[i]][3][1])
+}
+
+col_2<-acc_1
+
+
+acc_1<-c()
+for(i in 1:length(dllx)){
+  acc_1[i]<-unlist(dllx[[i]][[4]][2,6])
+}
+
+
+col_3<-acc_1
+
+
+tab<-data.frame(dictionary=dictionary,negative=col1,accuracy=col_2,recall=col_3)
+
+
+names(s1)
+
+s1$sentiment<-s1$codef
+wm<-learn_bayes(s1,split=0.2,process=T)
+wm<-wm[wm$split=='Test',]
+allt<-stats(wm)
+
+
+s2$sentiment<-s2$codef
+wm<-learn_bayes(s2,split=0.2,process=T)
+wm<-wm[wm$split=='Test',]
+allt<-stats(wm)
+
+
+s1$sentiment<-s1$codef
+wm<-learn_bayes(s1,split=0.2,process=F)
+wm<-wm[wm$split=='Test',]
+allf<-stats(wm)
+
+aa<-allf$overall[1]
+ab<-allt$overall[1]
+
+neg_t<-allt$byClass[2,6]
+neg_f<-allf$byClass[2,6]
+
+
+
+
+
+working<-s1
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+working$sentiment<-working$negreal
+w1<-learn_bayes(working,process=T,split=0.2)
+w1<-w1[w1$split=='Test',]
+negt<-stats(w1)
+
+
+working<-s1
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+working$sentiment<-working$negreal
+w1<-learn_bayes(working,process=F,split=0.2)
+w1<-w1[w1$split=='Test',]
+negf<-stats(w1)
+
+
+working<-s2
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+working$sentiment<-working$negreal
+w1<-learn_bayes(working,process=T,split=0.2)
+w1<-w1[w1$split=='Test',]
+negt<-stats(w1)
+
+
+working<-s2
+working$negreal<-factor(ifelse(working$codef=='negative','negative','not'))
+working$sentiment<-working$negreal
+w1<-learn_bayes(working,process=F,split=0.2)
+w1<-w1[w1$split=='Test',]
+negf<-stats(w1)
+
+acc_neg_f<-negf$overall[1]
+acc_neg_t<-negt$overall[1]
+## stemming is a good thing
+
+
+
+neg_t_neg<-negt$byClass[1]
+neg_f_neg<-negf$byClass[1]
+
+
+
+sens<-c(neg_t,neg_f,neg_t_neg,neg_f_neg)
+
+acc<-c(aa,
+ab,
+acc_neg_t,
+acc_neg_f)
+
+set<-c('all processed','all','negative processed','negative')
+d<-data.frame(set,acc,sens)
+
+
+library(stargazer)
+
+stargazer(d,summary=F)
+stargazer(tab,summary=F)
+
+class(tab$negative)
+
+
+
+
+comp(s)
+comp(s01)
+comp(s02)
+comp(s03)
+comp(s04)
+comp(s05)
+comp(s06)
+comp(s07)
+
+comp2(s)
+comp2(s01)
+comp2(s02)
+comp2(s03)
+comp2(s04)
+comp2(s05)
+comp2(s06)
+comp2(s07)
+comp2(s08)
+
+ml(s)
+ml(s01)
+ml(s02)
+ml(s03)
+ml(s04)
+ml(s05)
+ml(s06)
+ml(s07)
+ml(s08)
+
+
+```
+```{r}
+
+plot(c(0.3410,0.3124,0.050915,0.2958))
+
+```
+
+```{r}
+
+plot(tab$negative~tab$accuracy,ylim=c(0.3,1),xlim=c(0.1,1),ylab='Negativity Prediction',xlab='Accuracy',col='blue',pch=19)
+lines(abline(h=0.5,col='blue'))
+lines(abline(v=0.25,col='blue'))
+points(d$acc[3]~d$acc[4],col='red',pch=19)
+points(d$acc[1]~d$acc[2],col='red',pch=19)
+text(d$acc[1]~d$acc[2],labels='unprocessed machine learning',cex=0.7,offset=1,pos=1)
+
+```
+
+
+
+Stemmed
+
+Rauh in the stemmed form has a accuracy of 0.52 and a negativity sensitivity of 0.55. Same as the pooled model.
+
+Sentiws has an accuracy of 0.53 0.41
+
+Sentistr has 0.405 and sensitivity of 0.18
+
+Pooled stemmed goes up to 54 and 0.52
+
+for a subset of only those tweets that were unanimously code, it is 0.57!
+
+
+```{r}
+
+
+ml(s01)
+
+setwd(fun)
+source('dictionary_tools.R')
+stats(wm)
+```
+
+
+Let's try the naive bayes on the campaign data set:
+
+```{r}
+working2<-working
+
+working$sentiment<-working$negreal
+
+w1<-learn_bayes(working,process=T,split=0.2)
+
+w1<-w1[w1$split=='Test',]
+
+stats(w1)
+
+```
+
+As the test is rather small, 
+
+
+
+
+
+# Teil 3: Ton und Politik in den Sozialen Medien 
+
+Wie hängen Emotionen in den Sozialen Medien mit Politik zusammen? Spätestens seit der Trump Präsidentschaft spielt Twitter eine große Rolle in der Art und Weise, wie wir Politik wahrnehmen. Diskussion um Filterblasen, die Verrohung des Tons, Trolle, Shitstorms und Bots sind an der Tagesordnung. Diesen Problemen auch empirisch auf den Grund zu gehen ist eine der Aufgaben der Politikwissenschaft.
+
+Wir stellen uns die Frage, ob die Sozialen Medien Politiker verändern, ob sich diese möglicherweise anpassen und ihren Ton verschärfen, wenn sie dafür belohnt werden mit likes und retweets. 
+
+*Twitter ist, wie kein anderes digitales Medium so aggressiv und in keinem anderen Medium gibt es so viel Hass, Böswilligkeit und Hetze. Offenbar triggert Twitter in mir etwas an: aggressiver, lauter, polemischer und zugespitzter zu sein - und das alles in einer Schnelligkeit, die es schwer macht, dem Nachdenken Raum zu lassen. Offenbar bin ich nicht immun dagegen.* 
+                                        **Robert Habeck**
+
+Wir fragen uns also: Setzt Twitter Anreize negativ zu tweeten? Und wenn ja, warum ist das so? Liegt es an der Filterblase?
+
+## Negativität und Retweets
+
+
+Jetzt können wir schauen, ob ein bestimmter Ton unterschiedliche Reaktionen bei den Followern auslöst:
+
+```{r}
+reaction<- ggplot(res[res$retweet_count>0,], aes(x=score, y=retweet_count, col=type))
+reaction+geom_point(alpha=0.4)+
+  labs(x="Ton", y="Retweets", col="Art")
+```
+Dieser Plot verrät uns noch nicht all zu viel über unseren Twitterer.
+Daher sollten wir weiterführende Statistiken benutzen.
+
+```{r,message=FALSE,warning=FALSE}
+library(MASS)
+m<-glm.nb(retweet_count~score+hashtag_count+URL_dummy, data=res[res$is_retweet==F,])
+
+setwd(fun)
+source('predictdata.R')
+pred_score<-predict.by.score(model=m, data=res[res$is_retweet==F,])
+
+t.effect<- ggplot(pred_score, aes(x=score, y=pred))
+t.effect+geom_line(size=1, col="red")+
+  labs(x="Ton", y="Retweets")
+
+```
+
+Wie wir oben im Modell sehen, geht es aber nicht nur um die Verwendung von Negativität, sondern auch um Professionalität. Die Verwendung von URLs und Hashtags haben ebenfalls eine starken Effekt auf Reichweite.
+
+```{r}
+
+pred_prof<-predict.by.prof(model=m, data=res[res$is_retweet==F,])
+
+prof.effect<- ggplot(pred_prof, aes(x=hashtag_count, y=pred, col=URL_dummy))
+prof.effect+geom_line(size=1)+
+  labs(x="Hashtags", y="Retweets", col="URL")
+```
+
+## Forschungsergebnisse
+Nachdem wir jetzt untersucht haben, wie auf verschiedene Tweets eines einzelnen Nutzers reagiert wird, zeigen wir jetzt Ergebnisse unserer eigenen Forschung. 
+
+Zu diesem Zweck haben wir hier einen Datensatz aller Kandidaten der Landtagswahlen in Hessen und Bayern, die einen Twitter Account haben.
+
+```{r,message=FALSE,warning=FALSE}
+
+setwd(examples)
+tweet.data<- read.csv("tweet_data.csv")
+
+
+
+
+```
+
+Dieser Datensatz wurde mit den selben Instrumenten erzeugt und bearbeitet, die wir eben kennengelernt haben. Die Mehrebenenstruktur der Daten und die Eigenschaften der abhängigen Variable machen eine kompliziertere Analyse notwendig. 
+
+```{r,message=FALSE,warning=FALSE}
+
+library(lme4)
+
+Plot.model<- glmer.nb(reach~neg+hashtag_count+URL_dummy+
+                     (1|screen)+(1|party),
+                   data=tweet.data, nAGQ=0)
+
+setwd(fun)
+source('predictdata.R')
+candidate.prediction<- predict.full(Plot.model, tweet.data, 
+                                    c("gerdmannesafd", "markus_soeder", "atesguerpinar"),
+                                    c("AfD", "Union", "DIE LINKE"))
+pred.curve<- ggplot(candidate.prediction, aes(x=neg, y=pred, col=screen))
+pred.curve+geom_line(size=1)+
+  labs(x="Negativity", y="Reach", col="Screen Name")
+
+```
+
+## Anreize und Echokammern
+
+Wir sind noch einen Schritt weiter gegangen und haben nicht nur geschaut,
+ob es allgemein für Politiker einen Negativity incentive gibt,
+wie stark dieser für verschiedene Politker is und ob er sich durch die Struktur der Follower erklären lässt. In anderen Worten: Sorgen Echokammern dafür, dass Politiker eher bereit sind zu polarisieren?
+
+Um dies zu messen, haben wir die ideologischen Positionen der Follower geschätzt. Diese Methodik selbst auszuprobieren sprengt den Rahmen des Workshop da die Rechenzeit dies mit 16.000 Followern, auf denen der Datensatz basiert, zu berechnen in etwa der Länge des Workshops entspricht. 
+
+Kurz gesagt betrachten wir die soziale Netzwerkposition in Form von Friends, wem also gefollowed wird. Wir gehen davon aus, das Menschen homophil sind. Das bedeutet Sie bauen soziale Beziehungen eher mit Menschen auf die ihnen ähnlich sind, als unähnlich. Menschen die den gleichen Accounts folgen sind sich also ähnlich. Nur was ist die Dimension der Ähnlichkeit? Für diesen Zweck haben wir die Friends aus einer politisch geprägten Stichprobe gesammelt. Wir gehen davon aus, dass die Entscheidung einem Politiker zu folgen vor allem durch die politische Einstellung geprägt ist.
+
+```{r,message=FALSE,warning=FALSE}
+setwd(examples)
+individual.data<- read.csv("secondary_data.csv")
+individual.data<- individual.data[complete.cases(individual.data),]
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+aud.str<-ggplot(individual.data, aes(x=median_pos, y=var_pos, col=party, size=followers_count))
+aud.str+geom_point(alpha=0.5)+
+  labs(x="Median Follower", y="Variance", col="Partei", size="Anzahl Follower")+  scale_color_manual(values = my.colors) 
+```
+
+Was wir nun hier sehen ist eine Grafik des ideologischen Spektrums der Landtagswahlen. Jeder Kreis ist ein Politiker und die Position in dem Raster stellt seine Followerschaft dar. Je weiter links in der Grafik, umso weiter Links ist der durchschnittliche Follower. Je weiter oben in der Grafik, umso höher ist die Varianz, also die Weite der Followerschaft. Politiker die hier eine hohe Varianz haben werden von sehr **unterschiedlichen* Menschen gefolgt. 
+
+Was fällt ihnen an dem Graphen auf?
+
+### Was erklärt den Anreiz negativ zu sein?
+
+Wir verwenden nun diese Verteilung um die Stärke des Negativitätsanreizes pro Politiker zu schätzen. Wir vermuten, dass je homogener die Follower, umso größer der Anreiz, denn wenn man eine Filterbubble hat, wollen alle in etwa das gleiche hören.
+
+```{r,message=FALSE,warning=FALSE}
+
+neg.model<- lm(neg.x~var_pos+median_pos+log(followers_count)+party-1, data=individual.data)
+
+setwd(fun)
+source('predictdata.R')
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+
+effect.var<- predict.secondary(neg.model, individual.data, by.var = T)
+var.effect<- ggplot(effect.var, aes(x=var_pos, y=pred, col=party))
+var.effect+geom_line()+
+  labs(x="Varianz", y="Negativity Incentive", col="Partei")+  scale_color_manual(values = my.colors) 
+
+```
+
+In diesem Plot sieht man, dass unsere Theorie nicht ganz falsch ist. Wir sehen nich nur, dass die zunehmende Varianz die Retweet rate pro negativem Tweet reduziert, sondern auch das die Parteimitgliedschaft einen Anreiz schafft. 
+
+
+```{r,message=FALSE,warning=FALSE}
+effect.med<- predict.secondary(neg.model, individual.data, by.var = F)
+my.colors<- c("cornflowerblue","deeppink","gold", "orange","green","red", "black")
+med.effect<- ggplot(effect.med, aes(x=median_pos, y=pred, col=party))
+med.effect+geom_line()+
+  labs(x="Median", y="Negativity Incentive", col="Partei")+  scale_color_manual(values = my.colors) 
+
+```
+Für die links-rechts Position ist der Effekt umgekehrt. Gegeben der Partei, und der Varianz wird der Anreiz schwächer, je weiter rechts die Follower sind. Natürlich ist diese Position stark bestimmt durch die Partei. Aus diesem Grund beginnen rechte Parteien auf höherem Niveau. 
+
+Eine Erklärung kann hier sein, dass Parteien die so oder so negativ sind, keinen weiteren Nutzen aus zusätzlicher Negativität ziehen. Für Parteien, die meistens positiv sind, ist es eher etwas besonderes.
+
+
+
+
+### Abschlussdiskussion: Asoziale Medien?
+
+
+
