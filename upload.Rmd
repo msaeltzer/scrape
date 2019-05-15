@@ -181,7 +181,9 @@ cor(e2$d1,e2$pos)
 fin_plot_de(e2$d1,e2$pos,party=e2$party.y,roles=e2$role.x)
 ```
 
-## Party Office 
+## Office 
+
+We would argue that the more important figures represent the party line and act particularly loyal to the party in general: 
 
 ```{r}
 
@@ -191,6 +193,8 @@ fin_plot_de(e2$d1,e2$pos,party=e2$party.y,roles=e2$role.x,emp=T)
 
 ## List 
 
+In theory, distance to the party should be lower for list candidates than for those  directly elected by the voters.
+
 ```{r}
 
 fin_plot_list(e2$d1,e2$pos,party=e2$party.y,list=e2$liste)
@@ -199,14 +203,13 @@ fin_plot_list(e2$d1,e2$pos,party=e2$party.y,list=e2$liste)
 
 ## Text as Data
 
+The next approach is not to use static networks, but dynamic ones. I measure network references in terms of hashtags and @mentions in the same manner, using correpsondence analysis, allowing for two dimensions.
+
 ```{r}
-
 fin_plot_o(dat5$dim1,dat5$dim2,party=dat5$party)
-
-
 ``` 
 
-
+I compare these results to the positions from followership analysis.
 
 ```{r}
 
@@ -215,7 +218,7 @@ m<-merge(dat5,e2,by.x='screen_name',by.y='twitter_screen_name')
 fin_plot_o(m$d1,m$dim2,party=m$party.y)
 
 ```
-
+And to the roll call results
 
 ```{r}
 
@@ -223,12 +226,14 @@ fin_plot_o(as.vector(m$pos),m$dim1,party=m$party)
 
 ```
 
+Again I check for visual differences between list and nominate candidate.
 
 ```{r}
 
 fin_plot_list(m$dim2,m$dim1,party=m$party,list=m$liste)
 
 ```
+And where the important office holders are. 
 
 ```{r}
 
