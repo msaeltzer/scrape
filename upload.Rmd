@@ -31,6 +31,57 @@ mf$twitter_screen_name<-as.character(mf$twitter_screen_name)
 
 ```
 
+# An example of the IRT Logic on Twitter
+
+First we collect some amount of data. The twitter API is accessable by a Twitter Developers account available on: 
+
+www.twitter.com/apps
+
+You need to apply for an account and then enter you API here: 
+
+```{r}
+
+create_token()
+
+acc<-lookup_users('c_lindner')
+f1<-get_friends('c_lindner',n=acc$friends_count)
+
+```
+
+As you can see, we only get user IDs. To get more info, we can quickly get the data using lookup users. Now we get a full data set.
+
+```{r}
+
+friends<-lookup_users(f1$user_id)
+```
+
+Let's look who he follows more closely and sort by their respective followers count.
+
+```{r}
+friends<-friends[order(friends$followers_count,decreasing = T),]
+head(friends$screen_name,10)
+``` 
+```{r,echo=F}
+
+friends$fdp<-grepl('FDP',friends$description,ignore.case = T)
+friends$spd<-grepl('spd',friends$description,ignore.case = T)
+
+barplot(table(friends$fdp),col=c('grey','yellow'))
+```
+
+
+Now, that's not so many, right? But let's see if they are overrepresented given their activity.
+```{r,echo=F}
+friends$fdp1<-ifelse(friends$fdp==T,2,1)
+plot(log(friends$followers_count),log(friends$statuses_count),col=c('grey','yellow')[friends$fdp1],cex=c(0.5,1)[friends$fdp1],pch=c(5,19)[friends$fdp1],ylab='Activity',xlab='Followers')
+
+
+friends$spd1<-ifelse(friends$spd==T,2,1)
+plot(log(friends$followers_count),log(friends$statuses_count),col=c('grey','red')[friends$spd1],cex=c(0.5,1)[friends$fdp1],pch=c(5,19)[friends$fdp1],ylab='Activity',xlab='Followers')
+```
+
+
+
 # Application: German Bundestag 
 
 ## Data Collection
