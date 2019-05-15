@@ -1,0 +1,237 @@
+---
+title: "Using Twitter Follower Structures to Estimate Ideology"
+author: "Marius Saeltzer"
+date: "14 Mai 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r}
+
+source('https://www.dropbox.com/s/mur1ghcl7qp1tst/prepare_rollcalls.R?dl=1')
+
+con<-url('https://www.dropbox.com/s/59qa83xarufd1xb/btfr.Rdata?dl=1')
+load(con)
+
+con<-url('https://www.dropbox.com/s/u3y1v7oxhnnnugb/meta_aw.RData?dl=1')
+load(con)
+
+con<-url('https://www.dropbox.com/s/tcekvgaiy59mico/mentions.Rdata?dl=1')
+load(con)
+
+rc<-read.csv('https://www.dropbox.com/s/janjuksoyawtfuh/bt_17_rc.csv?dl=1',stringsAsFactors = F)
+
+mf$twitter_screen_name<-as.character(mf$twitter_screen_name)
+
+```
+
+# Application: German Bundestag 
+
+## Data Collection
+
+We start out with getting nodesets. While we can get data step by step, but more efficient is using Barberas tweetscores package which allows juggling multiple API keys.
+
+```{r}
+
+for(i in startp:length(inp)){
+  fn<-paste0('C:/users/admin/documents/bundestag/followerfriends/',inp[i],'.json')
+  if((fn %in% l1)==F){
+    check<-'dunno'
+    tryCatch(ff<-getFriends(oauth='C:/Users/admin/Dropbox/credentials',user_id=inp[i],sleep=3),error=function(e){check<<-'bad'})
+    if(check=='bad'){
+      print('bad catch, urgh')}else{write.csv(ff,fn)}
+  }else{print('got that, next')}
+}  
+
+```
+
+## Data Processing 
+
+Based on the resulting lists, we can create large lists of account links as we find in the dataset I provided. To analyze it like roll call data, we fist have to transfortm it into a adjectency matrix.
+It is actually computationally intesive to transform a large number of adjectencies into a large sparse matrix. We use tidyverse to do so.
+
+```{r}
+
+adj2<-tw
+###
+
+names(adj2)[1]<-'user'
+
+u<-as.character(unique(adj2$friend))
+sl<-as.character(unique(adj2$user))
+adj2$user<-factor(adj2$user)  
+
+
+adj3 <-adj2 %>% split.data.frame(adj2$user) 
+adj4<-lapply(adj3, function (x) u %in% x$friend)
+adj5<-bind_cols(adj4)
+s2<-cbind(u,adj5)
+
+``` 
+
+## Estimation
+
+After transforming, we can apply a normal algorithm. Due to the large number of features (friends), bayesian computation is not feasible (Pablo used a cluster computer) Instead, I use Kosuke Imai's FAST Ideal Point Estimation using expectation maximization.
+ 
+```{r}
+t.mat<-turn(s2)
+t.mat<-as.matrix(t.mat[2:ncol(t.mat)])
+class(t.mat[,2])
+tl<-colSums(t.mat)
+
+# we remove rare account to save some time 
+tm<-t.mat[,!tl<3]
+
+rc_dat<- rollcall(data=tm,yea=1, nay=0, missing=NA)
+rc<-convertRC(rc_dat)
+
+### define priors
+p <- makePriors(rc$n, rc$m, 1)
+s <- getStarts(rc$n, rc$m, 1)
+
+### Run model 
+lout <- binIRT(.rc = rc,
+               .starts = s,
+               .priors = p,
+               .control = {
+                 list(threads=3,
+                      verbose=TRUE,
+                      thresh=1e-6)
+               })
+
+save(lout,file='friendsmodelbt.Rdata')
+```
+
+## Plotting
+
+Next we merge model results to the individual level data. 
+
+```{r}
+pos<-data.frame(twitter_screen_name=as.character(rownames(t.mat)),position=
+lout$means$x)
+
+pos$twitter_screen_name<-as.character(pos$twitter_screen_name)
+
+pos$twitter_screen_name<-gsub('fr_','',pos$twitter_screen_name)
+
+explore<-merge(mf,pos,by='twitter_screen_name')
+
+plot(explore$d1~explore$party)
+
+```
+
+## Compare to roll calls
+
+Now we can compute the traditional roll calls from the Bundestag to compare
+
+```{r}
+rollc<-rc[,8:ncol(rc)]
+
+rollc[rollc=='nicht beteiligt']<-NA
+rollc[rollc=='enthalten']<-NA
+rollc[rollc=='dafür gestimmt']<-1
+rollc[rollc=='dagegen gestimmt']<-0
+
+rollc<-as.matrix(rollc)
+
+rollc1<-apply(rollc,MARGIN=2,FUN='as.numeric')
+names(rollc1)<-NULL
+
+rc_dat<- rollcall(data=rollc1,yea=1, nay=0, missing=NA)
+rc1<-convertRC(rc_dat)
+rm(rc_dat)
+p <- makePriors(rc1$n, rc1$m, 1)
+s <- getStarts(rc1$n, rc1$m, 1)
+
+lout <- binIRT(.rc = rc1,
+               .starts = s,
+               .priors = p,
+               .control = {
+                 list(threads=3,
+                      verbose=TRUE,
+                      thresh=1e-6)
+               })
+
+
+
+rc$pos<-lout$means$x
+
+plot(rc$pos~factor(rc$party))
+
+```
+
+## Visualize
+```{r}
+
+rcres<-rc[,1:8]
+rcres$pos<-lout$means$x
+
+rcres$fullname<-paste0(rcres$firstname,' ',rcres$name)  
+    
+e2<-merge(rcres,explore,by='fullname')
+
+cor(e2$d1,e2$pos)
+
+fin_plot_de(e2$d1,e2$pos,party=e2$party.y,roles=e2$role.x)
+```
+
+## Party Office 
+
+```{r}
+
+fin_plot_de(e2$d1,e2$pos,party=e2$party.y,roles=e2$role.x,emp=T)
+
+```
+
+## List 
+
+```{r}
+
+fin_plot_list(e2$d1,e2$pos,party=e2$party.y,list=e2$liste)
+
+```
+
+## Text as Data
+
+```{r}
+
+fin_plot_o(dat5$dim1,dat5$dim2,party=dat5$party)
+
+
+``` 
+
+
+
+```{r}
+
+m<-merge(dat5,e2,by.x='screen_name',by.y='twitter_screen_name')
+
+fin_plot_o(m$d1,m$dim2,party=m$party.y)
+
+```
+
+
+```{r}
+
+fin_plot_o(as.vector(m$pos),m$dim1,party=m$party)
+
+```
+
+
+```{r}
+
+fin_plot_list(m$dim2,m$dim1,party=m$party,list=m$liste)
+
+```
+
+```{r}
+
+fin_plot_de(m$dim2,m$dim1,party=m$party,role=m$role.x,emp=T,zoom = T)
+
+```
