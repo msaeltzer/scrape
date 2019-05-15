@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 
-source('https://www.dropbox.com/s/mur1ghcl7qp1tst/prepare_rollcalls.R?dl=1')
+source('https://www.dropbox.com/s/l7oagjzxdk53f96/prepare.R?dl=1')
 
 con<-url('https://www.dropbox.com/s/59qa83xarufd1xb/btfr.Rdata?dl=1')
 load(con)
